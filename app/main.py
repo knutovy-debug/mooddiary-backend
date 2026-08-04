@@ -49,3 +49,7 @@ async def analyze(
     await db.commit()
     await db.refresh(new_entry)
     return analysis
+from app.api.v1 import auth, entries
+
+# ...
+app.include_router(auth.router, prefix="/api/v1")
