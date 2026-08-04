@@ -24,8 +24,7 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all())   # <-- добавить отступ (4 пробела)
-
+        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn))
 @app.get("/")
 def root():
     return {"message": "MoodDiary API работает!"}
