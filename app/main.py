@@ -11,14 +11,20 @@ from app.api.v1 import auth, entries
 app = FastAPI(title="MoodDiary API")
 
 # CORS — настройка до подключения роутеров (порядок не важен, но лучше сначала)
+
+from fastapi.middleware.cors import CORSMiddleware
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+    "https://mooddiary-frontend.vercel.app",           # production (если есть)
+    "https://mooddiary-frontend-31z7-phl.vercel.app",  # ваш текущий preview (если production нет)
+    "http://localhost:5173"                           # для локальной разработки
+],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
