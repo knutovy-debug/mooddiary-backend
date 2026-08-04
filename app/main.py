@@ -21,11 +21,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-)
 @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)  # <--- отступ исправлен
+        await conn.run_sync(Base.metadata.create_all())   # <-- добавить отступ (4 пробела)
 
 @app.get("/")
 def root():
