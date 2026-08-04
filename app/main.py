@@ -16,14 +16,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-    "https://mooddiary-frontend.vercel.app",           # production (если есть)
-    "https://mooddiary-frontend-31z7-phl.vercel.app",  # ваш текущий preview (если production нет)
-    "http://localhost:5173"                           # для локальной разработки
-],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
 )
 @app.on_event("startup")
 async def startup():
