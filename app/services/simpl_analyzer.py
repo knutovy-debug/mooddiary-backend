@@ -1,6 +1,5 @@
 import re
 
-# Позитивные и негативные слова (можно расширять)
 POSITIVE_WORDS = {'хорош', 'отличн', 'прекрасн', 'замечательн', 'рад', 'счастлив', 'люблю', 'нравит', 'удач', 'спокоен', 'легк'}
 NEGATIVE_WORDS = {'плох', 'ужасн', 'нервн', 'тревожн', 'грустн', 'печальн', 'зл', 'раздраж', 'больн', 'страшн', 'боюсь', 'тяжел'}
 STRESS_WORDS = {'стресс', 'пережив', 'волнуюсь', 'нерв', 'давл', 'устал', 'вымотан', 'спал'}
@@ -20,28 +19,7 @@ def get_topics(text: str) -> list:
         topics.append('общее')
     return topics
 
-import re
-
-POSITIVE_WORDS = {'хорош', 'отличн', 'прекрасн', 'замечательн', 'рад', 'счастлив', 'люблю', 'нравит', 'удач', 'спокоен', 'легк'}
-NEGATIVE_WORDS = {'плох', 'ужасн', 'нервн', 'тревожн', 'грустн', 'печальн', 'зл', 'раздраж', 'больн', 'страшн', 'боюсь', 'тяжел'}
-STRESS_WORDS = {'стресс', 'пережив', 'волнуюсь', 'нерв', 'давл', 'устал', 'вымотан', 'спал'}
-
-def get_topics(text: str) -> list:
-    topics = []
-    text_lower = text.lower()
-    if re.search(r'работа|дел|начальник|коллег|проект|задач', text_lower):
-        topics.append('работа')
-    if re.search(r'друг|друз|семь|родн|отношени', text_lower):
-        topics.append('отношения')
-    if re.search(r'здоров|спорт|бег|ходьб|зарядк|сон|питани', text_lower):
-        topics.append('здоровье')
-    if re.search(r'день|утр|вечер|сегодня|завтра', text_lower):
-        topics.append('день')
-    if not topics:
-        topics.append('общее')
-    return topics
-
-def analyze_entry(text: str, lang: str = "ru") -> dict:
+def analyze_entry(text: str) -> dict:
     text_lower = text.lower()
     words = set(re.findall(r'\w+', text_lower))
 
@@ -66,22 +44,12 @@ def analyze_entry(text: str, lang: str = "ru") -> dict:
 
     topics = get_topics(text)
 
-    # --- Выбор языка для рекомендации ---
-    if lang == "en":
-        if stress_level >= 8:
-            recommendation = "You feel tense. Try to take 5 deep breaths or go for a walk."
-        elif stress_level <= 3:
-            recommendation = "You're in a good mood! Share it with your loved ones."
-        else:
-            recommendation = "Thank you for sharing. Keep taking care of yourself."
+    if stress_level >= 8:
+        recommendation = "Вы чувствуете напряжение. Попробуйте сделать 5 глубоких вдохов или прогуляться."
+    elif stress_level <= 3:
+        recommendation = "У вас хорошее настроение! Поделитесь им с близкими."
     else:
-        # русский (по умолчанию)
-        if stress_level >= 8:
-            recommendation = "Вы чувствуете напряжение. Попробуйте сделать 5 глубоких вдохов или прогуляться."
-        elif stress_level <= 3:
-            recommendation = "У вас хорошее настроение! Поделитесь им с близкими."
-        else:
-            recommendation = "Спасибо, что поделились. Продолжайте заботиться о себе."
+        recommendation = "Спасибо, что поделились. Продолжайте заботиться о себе."
 
     return {
         "sentiment": sentiment,
