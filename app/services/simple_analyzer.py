@@ -19,7 +19,7 @@ def get_topics(text: str) -> list:
         topics.append('общее')
     return topics
 
-def analyze_entry(text: str) -> dict:
+def analyze_entry(text: str, lang: str = "ru") -> dict:
     text_lower = text.lower()
     words = set(re.findall(r'\w+', text_lower))
 
@@ -44,12 +44,22 @@ def analyze_entry(text: str) -> dict:
 
     topics = get_topics(text)
 
-    if stress_level >= 8:
-        recommendation = "Вы чувствуете напряжение. Попробуйте сделать 5 глубоких вдохов или прогуляться."
-    elif stress_level <= 3:
-        recommendation = "У вас хорошее настроение! Поделитесь им с близкими."
+    # ---- Рекомендация в зависимости от языка ----
+    if lang == "en":
+        if stress_level >= 8:
+            recommendation = "You feel tense. Try to take 5 deep breaths or go for a walk."
+        elif stress_level <= 3:
+            recommendation = "You're in a good mood! Share it with your loved ones."
+        else:
+            recommendation = "Thank you for sharing. Keep taking care of yourself."
     else:
-        recommendation = "Спасибо, что поделились. Продолжайте заботиться о себе."
+        # русский (по умолчанию)
+        if stress_level >= 8:
+            recommendation = "Вы чувствуете напряжение. Попробуйте сделать 5 глубоких вдохов или прогуляться."
+        elif stress_level <= 3:
+            recommendation = "У вас хорошее настроение! Поделитесь им с близкими."
+        else:
+            recommendation = "Спасибо, что поделились. Продолжайте заботиться о себе."
 
     return {
         "sentiment": sentiment,

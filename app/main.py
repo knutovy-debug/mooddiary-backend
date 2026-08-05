@@ -39,10 +39,12 @@ def root():
 @app.get("/api/v1/analyze")
 async def analyze(
     text: str,
+    lang: str = "ru",  # <-- добавляем параметр lang
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    analysis = analyze_entry(text)
+    analysis = analyze_entry(text, lang)   # <-- передаём lang в анализатор
+    ...
     new_entry = Entry(
         user_id=current_user.id,
         text=text,
