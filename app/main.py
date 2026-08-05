@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db, engine, Base
 from app.models import User, Entry
-from app.services.simple_analyzer import analyze_entry
+from app.services.ai.fallback import analyze_entry
 from app.core.dependencies import get_current_user
 from app.api.v1 import auth, entries
 
