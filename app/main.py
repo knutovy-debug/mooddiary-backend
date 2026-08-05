@@ -6,7 +6,7 @@ from app.core.database import get_db, engine, Base
 from app.models import User, Entry
 from app.services.deepseek_service import analyze_entry
 from app.api.v1 import auth, entries
-
+from app.core.dependencies import get_current_user
 app = FastAPI(title="MoodDiary API")
 
 # CORS — настройка до подключения роутеров (порядок не важен, но лучше сначала)

@@ -1,4 +1,3 @@
-from app.services.deepseek_service import analyze_entry as deepseek_analyze
 from app.services.rubert_service import analyze_entry as rubert_analyze
 
 async def analyze_entry(text: str) -> dict:
