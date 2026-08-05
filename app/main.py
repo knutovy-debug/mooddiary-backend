@@ -7,6 +7,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker, declared_attr
 from sqlalchemy import Column, Integer, String, Text, DateTime, select, func
 from pydantic import BaseModel
 import uvicorn
+from app.api.v1 import auth, entries
 
 # ==========================================
 # 1. Настройки Базы Данных (SQLite)
@@ -75,7 +76,8 @@ origins = [
     # "http://localhost:3000",  # Если тестируете локально через React/Vite
     # "http://localhost:5173",
 ]
-
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(entries.router, prefix="/api/v1")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,          # Разрешаем эти домены
