@@ -2,12 +2,16 @@ import os
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.api.v1 import subscription
 from app.core.database import get_db, engine, Base
 from app.models import User, Entry
 from app.services.simple_analyzer import analyze_entry
+app.include_router(subscription.router, prefix="/api/v1")
+app.include_router(subscription.router, prefix="/api/v1")
 from app.core.dependencies import get_current_user
 from app.api.v1 import auth, entries
+from app.api.v1 import subscription
+
 
 app = FastAPI(title="MoodDiary API")
 
