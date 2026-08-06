@@ -1,13 +1,15 @@
 import os
-from fastapi import FastAPI, Depends
+from datetime import datetime
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select
 
 from app.core.database import get_db, engine, Base
 from app.models import User, Entry
 from app.services.simple_analyzer import analyze_entry
 from app.core.dependencies import get_current_user
-from app.api.v1 import auth, entries, subscription   # все роутеры в одном импорте
+from app.api.v1 import auth, entries, subscription
 
 app = FastAPI(title="MoodDiary API")
 
@@ -34,10 +36,29 @@ def root():
 @app.get("/api/v1/analyze")
 async def analyze(
     text: str,
+    lang: str = "ru",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    analysis = analyze_entry(text)
+    # --- Проверка подписки и лимита записей ---
+    is_premium = current_user.is_subscribed and current_user.subscription_expires and current_user.subscription_expires > datetime.utcnow()
+    
+    if not is_premium:
+        today = datetime.utcnow().date()
+        count = await db.scalar(
+            select(func.count(Entry.id)).where(
+                Entry.user_id == current_user.id,
+                func.date(Entry.created_at) == today
+            )
+        )
+        if count >= 3:
+            raise HTTPException(
+                status_code=403, 
+                detail="Daily limit reached (3 entries). Buy subscription to get unlimited."
+            )
+    # --- Конец проверки ---
+
+    analysis = analyze_entry(text, lang)
     new_entry = Entry(
         user_id=current_user.id,
         text=text,
@@ -51,7 +72,7 @@ async def analyze(
     await db.refresh(new_entry)
     return analysis
 
-# Подключаем роутеры (после создания app)
+# Подключаем роутеры
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(entries.router, prefix="/api/v1")
 app.include_router(subscription.router, prefix="/api/v1")
