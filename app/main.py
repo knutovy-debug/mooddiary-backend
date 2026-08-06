@@ -2,20 +2,16 @@ import os
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.api.v1 import subscription
+
 from app.core.database import get_db, engine, Base
 from app.models import User, Entry
 from app.services.simple_analyzer import analyze_entry
-app.include_router(subscription.router, prefix="/api/v1")
-app.include_router(subscription.router, prefix="/api/v1")
 from app.core.dependencies import get_current_user
-from app.api.v1 import auth, entries
-from app.api.v1 import subscription
-
+from app.api.v1 import auth, entries, subscription   # все роутеры в одном импорте
 
 app = FastAPI(title="MoodDiary API")
 
-# CORS — разрешаем все источники для теста
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,17 +20,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# При старте удаляем старую базу и создаём заново с правильной схемой
 @app.on_event("startup")
 async def startup():
-    # Удаляем существующий файл БД, если он есть
     if os.path.exists("mooddiary.db"):
         os.remove("mooddiary.db")
-        print("Старая база данных удалена.")
-    # Создаём таблицы заново
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("Таблицы созданы.")
 
 @app.get("/")
 def root():
@@ -43,12 +34,10 @@ def root():
 @app.get("/api/v1/analyze")
 async def analyze(
     text: str,
-    lang: str = "ru",  # <-- добавляем параметр lang
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    analysis = analyze_entry(text, lang)   # <-- передаём lang в анализатор
-    ...
+    analysis = analyze_entry(text)
     new_entry = Entry(
         user_id=current_user.id,
         text=text,
@@ -62,6 +51,7 @@ async def analyze(
     await db.refresh(new_entry)
     return analysis
 
-# Подключаем роутеры (регистрация, логин, история, статистика)
+# Подключаем роутеры (после создания app)
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(entries.router, prefix="/api/v1")
+app.include_router(subscription.router, prefix="/api/v1")
