@@ -76,3 +76,15 @@ async def analyze(
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(entries.router, prefix="/api/v1")
 app.include_router(subscription.router, prefix="/api/v1")
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://mooddiary-frontend-zeta.vercel.app",
+        "https://foil-poker-throbbing.ngrok-free.dev"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
