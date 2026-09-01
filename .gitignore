@@ -1,4 +1,12 @@
+https://github.com/knutovy-debug/mooddiary-backend.gitvenv/
+_pycache_/
+*.pyc
+mooddiary.db
 .env
-venv
-__pycache__
-*.db
+node_modules/
+package-lock.json
+package.json
+.DS_Store
+venv/
+
+
