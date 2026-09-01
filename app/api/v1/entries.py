@@ -1,73 +1,40 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
-from datetime import datetime
+from sqlalchemy import select, update
 from app.core.database import get_db
-from app.models.entry import Entry
 from app.models.user import User
 from app.core.dependencies import get_current_user
+from app.core.config import settings  # Если нет settings, используй os.getenv
+import httpx
+import os
 
 router = APIRouter(prefix="/entries", tags=["entries"])
 
-@router.get("/my")
-async def get_my_entries(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    result = await db.execute(
-        select(Entry)
-        .where(Entry.user_id == current_user.id)
-        .order_by(desc(Entry.created_at))
-    )
-    entries = result.scalars().all()
-    return entries
+# Токен твоего бота из переменной окружения (добавь BOT_TOKEN в Railway!)
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8796483021:AAEBlUMP6e-2JWbfopilvA8fJB1fpZj0Pzw")
+# Твой Telegram ID (узнать через @userinfobot)
+ADMIN_ID = os.getenv("ADMIN_ID", "1177629279")
 
-@router.get("/stats")
-async def get_stats(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+@router.post("/confirm-payment")
+async def request_payment_confirmation(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
-    from collections import Counter
-    result = await db.execute(
-        select(Entry)
-        .where(Entry.user_id == current_user.id)
-        .order_by(Entry.created_at)
-    )
-    entries = result.scalars().all()
-    if not entries:
-        return {"dates": [], "sentiments": [], "stress": [], "topics": {}}
-    dates = [e.created_at.strftime("%Y-%m-%d") for e in entries]
-    sentiment_map = {"positive": 1, "neutral": 0, "negative": -1}
-    sentiments = [sentiment_map.get(e.sentiment, 0) for e in entries]
-    stress = [e.stress_level for e in entries]
-    topics = []
-    for e in entries:
-        if e.topics:
-            topics.extend(e.topics.split(", "))
-    topic_counts = Counter(topics)
-    return {
-        "dates": dates,
-        "sentiments": sentiments,
-        "stress": stress,
-        "topics": dict(topic_counts)
-    }
-
-# --- НОВЫЙ ЭНДПОИНТ ДЛЯ СЧЁТЧИКА ЗАПИСЕЙ ---
-@router.get("/today-count")
-async def get_today_count(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    today = datetime.utcnow().date()
-    count = await db.scalar(
-        select(func.count(Entry.id)).where(
-            Entry.user_id == current_user.id,
-            func.date(Entry.created_at) == today
+    # Отправляем уведомление админу с кнопкой подтверждения
+    async with httpx.AsyncClient() as client:
+        # Сначала отправляем сообщение админу
+        await client.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json={
+                "chat_id": ADMIN_ID,
+                "text": f"🛒 Пользователь @{current_user.username or 'None'} (ID: {current_user.id}) нажал кнопку «Я оплатил».\n\nПожалуйста, проверьте перевод и подтвердите оплату:",
+                "reply_markup": {
+                    "inline_keyboard": [[
+                        {"text": "✅ Подтвердить", "callback_data": f"confirm_{current_user.id}"},
+                        {"text": "❌ Отклонить", "callback_data": f"reject_{current_user.id}"}
+                    ]]
+                }
+            }
         )
-    )
-    is_premium = current_user.is_subscribed and current_user.subscription_expires and current_user.subscription_expires > datetime.utcnow()
-    return {
-        "count": count or 0,
-        "limit": 999 if is_premium else 3,
-        "is_premium": is_premium
-    }
+
+    return {"status": "pending", "message": "Уведомление отправлено админу"}
