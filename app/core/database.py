@@ -5,12 +5,12 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./mooddiary.db")
 
-# Async engine for the application (то, что использует FastAPI)
+# Асинхронный движок для FastAPI
 engine = create_async_engine(DATABASE_URL, echo=True)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 Base = declarative_base()
 
-# Sync engine for table creation (обходит ошибку AsyncEngine)
+# Синхронный движок для создания таблиц! (именно его использует main.py)
 sync_engine = create_engine(DATABASE_URL.replace("+aiosqlite", ""))
 
 async def get_db():
