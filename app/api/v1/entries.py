@@ -55,17 +55,31 @@ async def create_entry(payload: dict, current_user: User = Depends(get_current_u
 
 @router.post("/confirm-payment")
 @router.post("/confirm-payment")
+@router.post("/confirm-payment")
 async def confirm_payment(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    # Отправляем уведомление (вдруг Telegram заработает)
     try:
         async with httpx.AsyncClient() as client:
-            await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={"chat_id": ADMIN_ID, "text": f"Пользователь @{current_user.username or 'None'} (ID: {current_user.id}) нажал кнопку «Я оплатил». Проверьте банк."})
+            await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={"chat_id": ADMIN_ID, "text": f"Пользователь @{current_user.username or 'None'} (ID: {current_user.id}) нажал кнопку «Я оплатил»."})
     except Exception as e:
         print(f"Ошибка Telegram: {e}")
 
-    # УДАЛИЛИ ВСЕ СТРОЧКИ С АВТОАКТИВАЦИЕЙ!
-    # Подписка НЕ активируется автоматически.
+    # Возвращаем ID пользователя, чтобы ты знал, кого активировать
+    return {"status": "pending", "user_id": current_user.id}
+    # Секретная ссылка для тебя. Замени "ADMIN_SECRET_123" на свой пароль!
+@router.post("/admin/activate/{user_id}")
+async def admin_activate(user_id: int, secret: str, db: AsyncSession = Depends(get_db)):
+    if secret != "ADMIN_SECRET_123":
+        return {"status": "wrong secret"}
     
-    return {"status": "pending", "message": "Запрос на подтверждение отправлен администратору."}
+    user = await db.get(User, user_id)
+    if user:
+        user.is_subscribed = True
+        user.subscription_expires = get_moscow_now() + timedelta(days=30)
+        await db.commit()
+        return {"status": "activated", "message": "Подписка активирована"}
+    
+    return {"status": "user not found"}
