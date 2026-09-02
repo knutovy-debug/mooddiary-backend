@@ -9,8 +9,8 @@ app = FastAPI(title="MoodDiary API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # Разрешаем запросы со всех сайтов
-    allow_credentials=False, # ОБЯЗАТЕЛЬНО False для работы с "*"
+    allow_origins=["https://mooddiary-frontend-zeta.vercel.app"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
