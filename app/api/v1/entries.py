@@ -13,7 +13,7 @@ router = APIRouter(prefix="/entries", tags=["entries"])
 # Токен твоего бота (прописан напрямую)
 BOT_TOKEN = "8796483021:AAEBlUMP6e-2JWbfopilvA8fJB1fpZj0Pzw"
 # Твой Telegram ID (прописан напрямую)
-ADMIN_ID = "1177629279"
+ADMIN_ID = "8796483021"
 
 @router.post("/confirm-payment")
 async def request_payment_confirmation(
