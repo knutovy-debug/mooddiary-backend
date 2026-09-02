@@ -1,69 +1,29 @@
-import re
+import os
+import json
+from openai import OpenAI
 
-POSITIVE_WORDS = {'хорош', 'отличн', 'прекрасн', 'замечательн', 'рад', 'счастлив', 'люблю', 'нравит', 'удач', 'спокоен', 'легк'}
-NEGATIVE_WORDS = {'плох', 'ужасн', 'нервн', 'тревожн', 'грустн', 'печальн', 'зл', 'раздраж', 'больн', 'страшн', 'боюсь', 'тяжел'}
-STRESS_WORDS = {'стресс', 'пережив', 'волнуюсь', 'нерв', 'давл', 'устал', 'вымотан', 'спал'}
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY", "ВСТАВЬ_СЮДА_ТВОЙ_КЛЮЧ_ЕСЛИ_НЕ_В_RAILWAY"),
+    base_url="https://api.deepseek.com"
+)
 
-def get_topics(text: str) -> list:
-    topics = []
-    text_lower = text.lower()
-    if re.search(r'работа|дел|начальник|коллег|проект|задач', text_lower):
-        topics.append('работа')
-    if re.search(r'друг|друз|семь|родн|отношени', text_lower):
-        topics.append('отношения')
-    if re.search(r'здоров|спорт|бег|ходьб|зарядк|сон|питани', text_lower):
-        topics.append('здоровье')
-    if re.search(r'день|утр|вечер|сегодня|завтра', text_lower):
-        topics.append('день')
-    if not topics:
-        topics.append('общее')
-    return topics
-
-def analyze_entry(text: str, lang: str = "ru") -> dict:
-    text_lower = text.lower()
-    words = set(re.findall(r'\w+', text_lower))
-
-    pos_count = sum(1 for w in words if w in POSITIVE_WORDS or any(pos in w for pos in POSITIVE_WORDS))
-    neg_count = sum(1 for w in words if w in NEGATIVE_WORDS or any(neg in w for neg in NEGATIVE_WORDS))
-
-    if pos_count > neg_count:
-        sentiment = 'positive'
-    elif neg_count > pos_count:
-        sentiment = 'negative'
-    else:
-        sentiment = 'neutral'
-
-    stress_level = 5
-    if any(w in words for w in STRESS_WORDS):
-        stress_level += 2
-    if neg_count > pos_count:
-        stress_level += 2
-    if len(text) > 200:
-        stress_level += 1
-    stress_level = max(1, min(10, stress_level))
-
-    topics = get_topics(text)
-
-    # ---- Рекомендация в зависимости от языка ----
-    if lang == "en":
-        if stress_level >= 8:
-            recommendation = "You feel tense. Try to take 5 deep breaths or go for a walk."
-        elif stress_level <= 3:
-            recommendation = "You're in a good mood! Share it with your loved ones."
-        else:
-            recommendation = "Thank you for sharing. Keep taking care of yourself."
-    else:
-        # русский (по умолчанию)
-        if stress_level >= 8:
-            recommendation = "Вы чувствуете напряжение. Попробуйте сделать 5 глубоких вдохов или прогуляться."
-        elif stress_level <= 3:
-            recommendation = "У вас хорошее настроение! Поделитесь им с близкими."
-        else:
-            recommendation = "Спасибо, что поделились. Продолжайте заботиться о себе."
-
-    return {
-        "sentiment": sentiment,
-        "stress_level": stress_level,
-        "topics": topics,
-        "recommendation": recommendation
-    }
+def analyze_entry(text: str) -> dict:
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "Ты — эмпатичный психолог и друг. Внимательно прочитай текст пользователя. Дай развернутый, уникальный и полезный совет, который нельзя предугадать. Если текст грустный, поддержи; если радостный, порадуйся вместе с ним. Не повторяйся. Верни ТОЛЬКО JSON (без markdown) с полями: sentiment (positive/negative/neutral), stress_level (1-10), topics (массив строк), recommendation (строка с уникальным советом)."},
+                {"role": "user", "content": text}
+            ],
+            response_format={"type": "json_object"}
+        )
+        # ВАЖНО: Превращаем строку из DeepSeek в словарь!
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        print(f"Ошибка DeepSeek (проверь ключ): {e}")
+        return {
+            "sentiment": "neutral",
+            "stress_level": 5,
+            "topics": [],
+            "recommendation": "Обратите внимание на свои мысли. Даже простые перерывы помогают восстановить баланс. Запишите, что вас беспокоит, и подумайте, какие шаги можно предпринять, чтобы это улучшить."
+        }
