@@ -3,7 +3,7 @@ import requests
 
 BOT_TOKEN = "8796483021:AAFTR7IwkRsnNLelncsVEer6Rt_r59JVvBM"
 ADMIN_ID = "1177629279"
-RAILWAY_URL = "https://web-production-e70f0c.up.railway.app"
+RAILWAY_URL = "https://web-production-7c06d.up.railway.app"
 ADMIN_SECRET = "ADMIN_SECRET_123" # Секретный ключ, который мы прописали в бэкенде
 
 bot = telebot.TeleBot(BOT_TOKEN)
