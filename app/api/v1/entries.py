@@ -8,12 +8,9 @@ from app.models.user import User
 from app.models.entry import Entry
 from app.core.dependencies import get_current_user
 from app.services.simple_analyzer import analyze_entry
-import httpx
 
 router = APIRouter(prefix="/entries", tags=["entries"])
-
-BOT_TOKEN = "8796483021:AAEBlUMP6e-2JWbfopilvA8fJB1fpZj0Pzw"
-ADMIN_ID = "8796483021"
+SECRET = "ADMIN_SECRET_123"
 
 def get_moscow_now():
     return datetime.now(timezone.utc) + timedelta(hours=3)
@@ -36,7 +33,6 @@ async def get_stats(current_user: User = Depends(get_current_user), db: AsyncSes
     if not entries: return {"dates": [], "sentiments": [], "stress_levels": []}
     return {"dates": [e["created_at"] for e in entries], "sentiments": [e["sentiment"] for e in entries], "stress_levels": [e["stress_level"] for e in entries]}
 
-# ВАЖНО: Это эндпоинт для СОЗДАНИЯ записи
 @router.post("")
 async def create_entry(payload: dict, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     text = payload.get("text", "").strip()
@@ -53,33 +49,40 @@ async def create_entry(payload: dict, current_user: User = Depends(get_current_u
     db.add(new_entry); await db.commit(); await db.refresh(new_entry)
     return {"id": new_entry.id, "sentiment": new_entry.sentiment, "stress_level": new_entry.stress_level, "topics": new_entry.topics, "recommendation": new_entry.recommendation}
 
+# При нажатии "Я оплатил", просто помечаем пользователя как ожидающего
 @router.post("/confirm-payment")
-@router.post("/confirm-payment")
-@router.post("/confirm-payment")
-async def confirm_payment(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    # Отправляем уведомление (вдруг Telegram заработает)
-    try:
-        async with httpx.AsyncClient() as client:
-            await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={"chat_id": ADMIN_ID, "text": f"Пользователь @{current_user.username or 'None'} (ID: {current_user.id}) нажал кнопку «Я оплатил»."})
-    except Exception as e:
-        print(f"Ошибка Telegram: {e}")
+async def confirm_payment(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    current_user.is_payment_pending = True
+    await db.commit()
+    return {"status": "pending"}
 
-    # Возвращаем ID пользователя, чтобы ты знал, кого активировать
-    return {"status": "pending", "user_id": current_user.id}
-    # Секретная ссылка для тебя. Замени "ADMIN_SECRET_123" на свой пароль!
+# Бот спрашивает у сервера: "Есть ли новые оплаты?"
+@router.get("/admin/pending-payments")
+async def get_pending_payments(secret: str, db: AsyncSession = Depends(get_db)):
+    if secret != SECRET: return {"error": "Wrong secret"}
+    result = await db.execute(select(User).where(User.is_payment_pending == True))
+    return {"users": [{"id": u.id} for u in result.scalars().all()]}
+
+# Активация подписки по кнопке "Подтвердить"
 @router.post("/admin/activate/{user_id}")
 async def admin_activate(user_id: int, secret: str, db: AsyncSession = Depends(get_db)):
-    if secret != "ADMIN_SECRET_123":
-        return {"status": "wrong secret"}
-    
+    if secret != SECRET: return {"status": "wrong secret"}
     user = await db.get(User, user_id)
     if user:
         user.is_subscribed = True
         user.subscription_expires = get_moscow_now() + timedelta(days=30)
+        user.is_payment_pending = False
         await db.commit()
-        return {"status": "activated", "message": "Подписка активирована"}
-    
+        return {"status": "activated"}
+    return {"status": "user not found"}
+
+# Отклонение оплаты по кнопке
+@router.post("/admin/reject/{user_id}")
+async def admin_reject(user_id: int, secret: str, db: AsyncSession = Depends(get_db)):
+    if secret != SECRET: return {"status": "wrong secret"}
+    user = await db.get(User, user_id)
+    if user:
+        user.is_payment_pending = False
+        await db.commit()
+        return {"status": "rejected"}
     return {"status": "user not found"}
