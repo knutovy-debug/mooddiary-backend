@@ -1,12 +1,11 @@
 from passlib.context import CryptContext
-from jose import jwt
+from jose import jwt, JWTError
 from datetime import datetime, timedelta
 import os
 
-# Секретный ключ для подписи JWT (для теста можно оставить так)
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key-mooddiary")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # Токен живет 30 дней
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -20,5 +19,12 @@ def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+# ВОТ ЭТА ФУНКЦИЯ, КОТОРОЙ НЕ ХВАТАЛО!
+def decode_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        return None
