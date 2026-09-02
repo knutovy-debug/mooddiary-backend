@@ -54,12 +54,18 @@ async def create_entry(payload: dict, current_user: User = Depends(get_current_u
     return {"id": new_entry.id, "sentiment": new_entry.sentiment, "stress_level": new_entry.stress_level, "topics": new_entry.topics, "recommendation": new_entry.recommendation}
 
 @router.post("/confirm-payment")
-async def confirm_payment(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+@router.post("/confirm-payment")
+async def confirm_payment(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     try:
         async with httpx.AsyncClient() as client:
-            await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={"chat_id": ADMIN_ID, "text": f"Пользователь @{current_user.username or 'None'} (ID: {current_user.id}) оплатил подписку. Проверьте перевод.", "reply_markup": {"inline_keyboard": [[{"text": "Подтвердить", "callback_data": f"confirm_{current_user.id}"}, {"text": "Отклонить", "callback_data": f"reject_{current_user.id}"}]]}})
-    except Exception as e: print(f"Ошибка Telegram: {e}")
-    current_user.is_subscribed = True
-    current_user.subscription_expires = get_moscow_now() + timedelta(days=30)
-    await db.commit()
-    return {"status": "pending", "message": "Запрос отправлен. Подписка активирована."}
+            await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={"chat_id": ADMIN_ID, "text": f"Пользователь @{current_user.username or 'None'} (ID: {current_user.id}) нажал кнопку «Я оплатил». Проверьте банк."})
+    except Exception as e:
+        print(f"Ошибка Telegram: {e}")
+
+    # УДАЛИЛИ ВСЕ СТРОЧКИ С АВТОАКТИВАЦИЕЙ!
+    # Подписка НЕ активируется автоматически.
+    
+    return {"status": "pending", "message": "Запрос на подтверждение отправлен администратору."}
