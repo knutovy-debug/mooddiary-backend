@@ -16,8 +16,7 @@ router = APIRouter(prefix="/entries", tags=["entries"])
 # ТВОИ ДАННЫЕ (ПРОПИСАНЫ ПРЯМО В ФАЙЛЕ!)
 # ==========================================
 BOT_TOKEN = "8796483021:AAEBlUMP6e-2JWbfopilvA8fJB1fpZj0Pzw"
-ADMIN_ID = "8796483021"  # Твой ID
-
+ADMIN_ID = "8796483021"
 # ==========================================
 
 def get_moscow_now():
@@ -65,7 +64,6 @@ async def get_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Здесь можно добавить сложную статистику, пока делаем простую
     entries = await get_my_entries(current_user, db)
     if not entries:
         return {"dates": [], "sentiments": [], "stress_levels": []}
@@ -76,6 +74,7 @@ async def get_stats(
         "stress_levels": [e["stress_level"] for e in entries]
     }
 
+# ВОТ ТУТ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: РОУТЕР ДЛЯ СОЗДАНИЯ ЗАПИСИ
 @router.post("")
 async def create_entry(
     payload: dict,
@@ -86,7 +85,6 @@ async def create_entry(
     if not text:
         raise HTTPException(status_code=400, detail="Текст не может быть пустым")
 
-    # Проверка лимита (3 бесплатные записи)
     if not current_user.is_subscribed:
         start_of_day = get_moscow_now().replace(hour=0, minute=0, second=0, microsecond=0)
         count_result = await db.execute(
@@ -100,19 +98,11 @@ async def create_entry(
         if today_count >= 3:
             raise HTTPException(status_code=403, detail="Бесплатный лимит исчерпан. Оплатите подписку.")
     
-    # Анализ текста
     try:
         analysis = analyze_entry(text)
-    except Exception as e:
-        # Если ИИ упал, сохраняем нейтральный результат
-        analysis = {
-            "sentiment": "neutral",
-            "stress_level": 5,
-            "topics": [],
-            "recommendation": "Обратите внимание на свои мысли."
-        }
+    except Exception:
+        analysis = {"sentiment": "neutral", "stress_level": 5, "topics": [], "recommendation": "Обратите внимание на свои мысли."}
 
-    # Создание записи
     new_entry = Entry(
         user_id=current_user.id,
         text=text,
@@ -139,7 +129,6 @@ async def confirm_payment(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Отправляем уведомление АДМИНУ с кнопками
     try:
         async with httpx.AsyncClient() as client:
             await client.post(
@@ -157,12 +146,8 @@ async def confirm_payment(
             )
     except Exception as e:
         print(f"Ошибка отправки в Telegram (Railway может блокировать): {e}")
-        # Если Telegram не работает (например, блокировка Railway), 
-        # просто активируем подписку сразу, чтобы человек не ждал.
-        # В реальном бизнесе нужно проверять деньги, но для теста так проще.
         
-    # ВАЖНО: Если ты хочешь, чтобы подписка активировалась ТОЛЬКО после твоего нажатия
-    # в Telegram, закомментируй эти 3 строчки ниже:
+    # ВАЖНО: Если хочешь, чтобы подписка активировалась ТОЛЬКО после твоего нажатия в Telegram, закомментируй эти 3 строчки ниже:
     current_user.is_subscribed = True
     current_user.subscription_expires = get_moscow_now() + timedelta(days=30)
     await db.commit()
