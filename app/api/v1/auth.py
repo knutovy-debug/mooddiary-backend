@@ -21,12 +21,12 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
     existing_user = await db.execute(select(User).where(User.email == data.email))
     if existing_user.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Пользователь с такой почтой уже существует")
-    
+
     new_user = User(email=data.email, hashed_password=hash_password(data.password), is_subscribed=False)
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
-    
+
     token = create_access_token({"sub": str(new_user.id)})
     return {"access_token": token, "token_type": "bearer"}
 
@@ -36,6 +36,6 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     user = user.scalar_one_or_none()
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Неверная почта или пароль")
-    
+
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer"}
