@@ -1,18 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.database import Base, sync_engine
 from app.api.v1 import auth, entries, subscription
+from app.core.database import engine, Base
 
-# Создаем таблицы через SYNC движок!
-Base.metadata.create_all(bind=sync_engine)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="MoodDiary API")
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
