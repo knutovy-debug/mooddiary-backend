@@ -10,10 +10,10 @@ import os
 
 router = APIRouter(prefix="/entries", tags=["entries"])
 
-# Токен твоего бота из переменной окружения (добавь BOT_TOKEN в Railway!)
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8796483021:AAEBlUMP6e-2JWbfopilvA8fJB1fpZj0Pzw")
-# Твой Telegram ID (узнать через @userinfobot)
-ADMIN_ID = os.getenv("ADMIN_ID", "1177629279")
+# Токен твоего бота (прописан напрямую)
+BOT_TOKEN = "8796483021:AAEBlUMP6e-2JWbfopilvA8fJB1fpZj0Pzw"
+# Твой Telegram ID (прописан напрямую)
+ADMIN_ID = "1177629279"
 
 @router.post("/confirm-payment")
 async def request_payment_confirmation(
