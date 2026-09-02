@@ -13,7 +13,7 @@ import httpx
 router = APIRouter(prefix="/entries", tags=["entries"])
 
 BOT_TOKEN = "8796483021:AAEBlUMP6e-2JWbfopilvA8fJB1fpZj0Pzw"
-ADMIN_ID = "1177629279"
+ADMIN_ID = "8796483021"
 
 def get_moscow_now():
     return datetime.now(timezone.utc) + timedelta(hours=3)
