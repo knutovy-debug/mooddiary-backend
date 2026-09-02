@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.database import Base, sync_engine
 from app.api.v1 import auth, entries, subscription
-from app.core.database import engine, Base
 
-Base.metadata.create_all(bind=engine)
+# ВАЖНО: Используем sync_engine, а не engine! Иначе происходит ошибка run_ddl_visitor
+Base.metadata.create_all(bind=sync_engine)
 
 app = FastAPI(title="MoodDiary API")
 
