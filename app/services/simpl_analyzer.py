@@ -1,9 +1,11 @@
 import os
 from openai import OpenAI
 
-# Подключаем DeepSeek (он поддерживает OpenAI SDK)
+import os
+
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 client = OpenAI(
-    api_key=os.getenv("sk-b85cc66250d44ab387f095e498e23bf9"),
+    api_key=DEEPSEEK_API_KEY,
     base_url="https://api.deepseek.com"
 )
 
@@ -19,5 +21,5 @@ def analyze_entry(text: str) -> dict:
         )
         return response.choices[0].message.content
     except Exception as e:
-        # Фолбэк: если DeepSeek не отвечает, возвращаем простой результат
+        print(f"Ошибка DeepSeek: {e}")
         return {"sentiment": "neutral", "stress_level": 5, "topics": [], "recommendation": "Попробуйте расслабиться."}
