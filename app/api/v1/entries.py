@@ -1,73 +1,65 @@
-from fastapi import APIRouter, Depends
+import os
+from datetime import datetime, timedelta, timezone
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
-from datetime import datetime
 from app.core.database import get_db
-from app.models.entry import Entry
 from app.models.user import User
+from app.models.entry import Entry
 from app.core.dependencies import get_current_user
+from app.services.simple_analyzer import analyze_entry
+import httpx
 
 router = APIRouter(prefix="/entries", tags=["entries"])
 
+BOT_TOKEN = "8796483021:AAEBlUMP6e-2JWbfopilvA8fJB1fpZj0Pzw"
+ADMIN_ID = "1177629279"
+
+def get_moscow_now():
+    return datetime.now(timezone.utc) + timedelta(hours=3)
+
+@router.get("/today-count")
+async def get_today_count(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    start_of_day = get_moscow_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    result = await db.execute(select(func.count(Entry.id)).where(Entry.user_id == current_user.id, Entry.created_at >= start_of_day))
+    return {"count": result.scalar() or 0}
+
 @router.get("/my")
-async def get_my_entries(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    result = await db.execute(
-        select(Entry)
-        .where(Entry.user_id == current_user.id)
-        .order_by(desc(Entry.created_at))
-    )
+async def get_my_entries(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Entry).where(Entry.user_id == current_user.id).order_by(Entry.created_at.desc()))
     entries = result.scalars().all()
-    return entries
+    return [{"id": e.id, "text": e.text, "sentiment": e.sentiment, "stress_level": e.stress_level, "topics": e.topics, "recommendation": e.recommendation, "created_at": e.created_at.isoformat()} for e in entries]
 
 @router.get("/stats")
-async def get_stats(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    from collections import Counter
-    result = await db.execute(
-        select(Entry)
-        .where(Entry.user_id == current_user.id)
-        .order_by(Entry.created_at)
-    )
-    entries = result.scalars().all()
-    if not entries:
-        return {"dates": [], "sentiments": [], "stress": [], "topics": {}}
-    dates = [e.created_at.strftime("%Y-%m-%d") for e in entries]
-    sentiment_map = {"positive": 1, "neutral": 0, "negative": -1}
-    sentiments = [sentiment_map.get(e.sentiment, 0) for e in entries]
-    stress = [e.stress_level for e in entries]
-    topics = []
-    for e in entries:
-        if e.topics:
-            topics.extend(e.topics.split(", "))
-    topic_counts = Counter(topics)
-    return {
-        "dates": dates,
-        "sentiments": sentiments,
-        "stress": stress,
-        "topics": dict(topic_counts)
-    }
+async def get_stats(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    entries = await get_my_entries(current_user, db)
+    if not entries: return {"dates": [], "sentiments": [], "stress_levels": []}
+    return {"dates": [e["created_at"] for e in entries], "sentiments": [e["sentiment"] for e in entries], "stress_levels": [e["stress_level"] for e in entries]}
 
-# --- НОВЫЙ ЭНДПОИНТ ДЛЯ СЧЁТЧИКА ЗАПИСЕЙ ---
-@router.get("/today-count")
-async def get_today_count(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    today = datetime.utcnow().date()
-    count = await db.scalar(
-        select(func.count(Entry.id)).where(
-            Entry.user_id == current_user.id,
-            func.date(Entry.created_at) == today
-        )
-    )
-    is_premium = current_user.is_subscribed and current_user.subscription_expires and current_user.subscription_expires > datetime.utcnow()
-    return {
-        "count": count or 0,
-        "limit": 999 if is_premium else 3,
-        "is_premium": is_premium
-    }
+# ВАЖНО: Это эндпоинт для СОЗДАНИЯ записи
+@router.post("")
+async def create_entry(payload: dict, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    text = payload.get("text", "").strip()
+    if not text: raise HTTPException(status_code=400, detail="Текст не может быть пустым")
+    if not current_user.is_subscribed:
+        start_of_day = get_moscow_now().replace(hour=0, minute=0, second=0, microsecond=0)
+        count_result = await db.execute(select(func.count(Entry.id)).where(Entry.user_id == current_user.id, Entry.created_at >= start_of_day))
+        if (count_result.scalar() or 0) >= 3: raise HTTPException(status_code=403, detail="Бесплатный лимит исчерпан. Оплатите подписку.")
+    try:
+        analysis = analyze_entry(text)
+    except Exception:
+        analysis = {"sentiment": "neutral", "stress_level": 5, "topics": [], "recommendation": "Обратите внимание на свои мысли."}
+    new_entry = Entry(user_id=current_user.id, text=text, sentiment=analysis.get("sentiment", "neutral"), stress_level=analysis.get("stress_level", 5), topics=", ".join(analysis.get("topics", [])), recommendation=analysis.get("recommendation", ""), created_at=get_moscow_now())
+    db.add(new_entry); await db.commit(); await db.refresh(new_entry)
+    return {"id": new_entry.id, "sentiment": new_entry.sentiment, "stress_level": new_entry.stress_level, "topics": new_entry.topics, "recommendation": new_entry.recommendation}
+
+@router.post("/confirm-payment")
+async def confirm_payment(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={"chat_id": ADMIN_ID, "text": f"Пользователь @{current_user.username or 'None'} (ID: {current_user.id}) оплатил подписку. Проверьте перевод.", "reply_markup": {"inline_keyboard": [[{"text": "Подтвердить", "callback_data": f"confirm_{current_user.id}"}, {"text": "Отклонить", "callback_data": f"reject_{current_user.id}"}]]}})
+    except Exception as e: print(f"Ошибка Telegram: {e}")
+    current_user.is_subscribed = True
+    current_user.subscription_expires = get_moscow_now() + timedelta(days=30)
+    await db.commit()
+    return {"status": "pending", "message": "Запрос отправлен. Подписка активирована."}
